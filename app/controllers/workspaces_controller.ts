@@ -1,6 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { inject } from '@adonisjs/core'
-import WorkspacesRepository from '../repository/workspaces.repository.js'
+import WorkspacesRepository from '#repository/workspaces.repository'
+import {
+    createWorkspaceValidator,
+    paramsWorkspaceValidator,
+    updateWorkspaceValidator,
+} from '#validators/workspace'
 
 @inject()
 export default class WorkspacesController {
@@ -13,18 +18,40 @@ export default class WorkspacesController {
         })
     }
 
-    /**
-     * Display form to create a new record
-     */
-    async create({}: HttpContext) {}
+    async store({ response, request, userId }: HttpContext) {
+        const data = request.only(['name'])
+        const payload = await createWorkspaceValidator.validate(data)
 
-    /**
-     * Show individual record
-     */
-    async show({}: HttpContext) {}
+        const workspace = await this.workspacesRepository.create(
+            {
+                name: payload.name,
+            },
+            userId!
+        )
 
-    /**
-     * Handle form submission for the edit action
-     */
-    async update({}: HttpContext) {}
+        return response.created({
+            data: workspace,
+        })
+    }
+
+    async show({ response, request, userId }: HttpContext) {
+        const { params } = await request.validateUsing(paramsWorkspaceValidator)
+        const workspace = await this.workspacesRepository.findById(params.id, userId!)
+
+        return response.ok({
+            data: workspace,
+        })
+    }
+
+    async update({ request, response, userId }: HttpContext) {
+        const { params } = await request.validateUsing(paramsWorkspaceValidator)
+
+        const data = request.only(['name'])
+
+        const payload = await updateWorkspaceValidator.validate(data)
+
+        await this.workspacesRepository.update(params.id, userId!, payload)
+
+        return response.noContent()
+    }
 }

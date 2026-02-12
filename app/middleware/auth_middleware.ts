@@ -17,7 +17,6 @@ export default class AuthMiddleware {
         if (!AuthMiddleware.jwks) {
             const jwksUrl = env.get('JWKS_URL')!
             AuthMiddleware.jwks = createRemoteJWKSet(new URL(jwksUrl))
-            console.log('[AuthMiddleware] JWKS configuré:', jwksUrl)
         }
     }
 
@@ -25,13 +24,21 @@ export default class AuthMiddleware {
         const authHeader = ctx.request.header('authorization')
 
         if (!authHeader) {
-            return ctx.response.unauthorized({ message: 'Token manquant' })
+            return ctx.response.unauthorized({
+                message: 'Missing authentication token',
+                error: 'TOKEN_MISSING',
+                statusCode: 401,
+            })
         }
 
         const [type, token] = authHeader.split(' ')
 
         if (type !== 'Bearer' || !token) {
-            return ctx.response.unauthorized({ message: 'Format de token invalide' })
+            return ctx.response.unauthorized({
+                message: 'Invalid token format',
+                error: 'TOKEN_INVALID_FORMAT',
+                statusCode: 401,
+            })
         }
 
         try {
@@ -43,10 +50,12 @@ export default class AuthMiddleware {
             const userId = typedPayload.sub || typedPayload.id
 
             if (!userId) {
-                return ctx.response.unauthorized({ message: 'User ID introuvable' })
+                return ctx.response.unauthorized({
+                    message: 'User ID not found in token',
+                    error: 'USER_ID_MISSING',
+                    statusCode: 401,
+                })
             }
-
-            console.log('[AuthMiddleware] User authentifié:', userId)
 
             ctx.userId = userId
             ctx.user = typedPayload
@@ -55,22 +64,36 @@ export default class AuthMiddleware {
             await next()
         } catch (error: unknown) {
             if (error instanceof Error) {
-                console.error('[AuthMiddleware] Error:', error.message)
-
                 if (error.message.includes('exp')) {
-                    return ctx.response.unauthorized({ message: 'Token expiré' })
+                    return ctx.response.unauthorized({
+                        message: 'Token has expired',
+                        error: 'TOKEN_EXPIRED',
+                        statusCode: 401,
+                    })
                 }
 
                 if (error.message.includes('signature')) {
-                    return ctx.response.unauthorized({ message: 'Signature invalide' })
+                    return ctx.response.unauthorized({
+                        message: 'Invalid token signature',
+                        error: 'TOKEN_INVALID_SIGNATURE',
+                        statusCode: 401,
+                    })
                 }
 
                 if (error.message.includes('issuer')) {
-                    return ctx.response.unauthorized({ message: 'Émetteur invalide' })
+                    return ctx.response.unauthorized({
+                        message: 'Invalid token issuer',
+                        error: 'TOKEN_INVALID_ISSUER',
+                        statusCode: 401,
+                    })
                 }
             }
 
-            return ctx.response.unauthorized({ message: 'Token invalide' })
+            return ctx.response.unauthorized({
+                message: 'Invalid authentication token',
+                error: 'TOKEN_INVALID',
+                statusCode: 401,
+            })
         }
     }
 }

@@ -1,8 +1,13 @@
 import { BasePolicy } from '@adonisjs/bouncer'
+import Workspace from '#models/workspace'
 import { AuthorizerResponse } from '@adonisjs/bouncer/types'
 
 export default class WorkspacePolicy extends BasePolicy {
-    viewList(): AuthorizerResponse {
-        return true
+    show(userId: string, workspace: Workspace): AuthorizerResponse {
+        return workspace.userId === userId
+    }
+
+    update(userId: string, workspace: Workspace): AuthorizerResponse {
+        return workspace.userId === userId
     }
 }
